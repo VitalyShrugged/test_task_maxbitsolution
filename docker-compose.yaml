@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+  postgres_db:
+    image: postgres:16
+    container_name: postgres_db
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}", "-h", "${POSTGRES_HOST}", "-p", "5432" ]
+      timeout: 30s
+      retries: 3
+    networks:
+      - local
+
+  test_task_maxbitsolution:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: test_task_maxbitsolution
+    restart: on-failure
+    env_file:
+      - .env
+    command: >
+      sh -c "python main.py"
+    volumes:
+      - .:/app/
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    mem_limit: 3500M
+    memswap_limit: 5500M
+    cpus: 1
+    cpu_shares: 50
+    networks:
+      - local
+
+networks:
+  local:
+    driver: bridge
+
+volumes:
+  postgres_db:
